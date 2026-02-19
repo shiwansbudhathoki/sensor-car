@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sensor Car Project</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <header>
+    <nav>
+      <div class="logo">Sensor Car</div>
+      <div class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="about.html">About</a>
+        <a href="components.html">Components</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="build-guide.html">Build Guide</a>
+        <a href="code-examples.html">Code</a>
+        <a href="quiz.html">Quiz</a>
+        <a href="game.html">Game</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+  <section>
+    <h2>Sample Arduino Code</h2>
+    <pre>
+// Obstacle Avoiding Example
+#include <NewPing.h>
+#define TRIGGER_PIN  9
+#define ECHO_PIN     10
+#define MAX_DISTANCE 200
+
+NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
+
+void loop() {
+  delay(50);
+  unsigned int distance = sonar.ping_cm();
+  if (distance < 25 && distance > 0) {
+    // turn
+  } else {
+    // go forward
+  }
+}
+    </pre>
+  </section>
+</main>
+
+  <footer>
+    <p>© 2026 Sensor Car Project • Educational Robotics</p>
+  </footer>
+
+  <script src="js/script.js"></script>
+</body>
+</html>
