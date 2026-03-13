@@ -3,40 +3,534 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sensor Car Project</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <title>Mini Blox Fruits • GitHub Edition</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+    
+    body {
+      margin: 0;
+      height: 100vh;
+      background: #0a0a2a;
+      color: #ffcc00;
+      font-family: 'Press Start 2P', cursive;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    canvas {
+      border: 8px solid #ffcc00;
+      box-shadow: 0 0 40px #ff8800, 0 0 80px #6600ff;
+      image-rendering: pixelated;
+    }
+    #ui {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      z-index: 100;
+      pointer-events: none;
+      text-shadow: 3px 3px 0 #000;
+      line-height: 1.4;
+    }
+    .bar {
+      height: 18px;
+      width: 220px;
+      background: #222;
+      border: 3px solid #ffcc00;
+      position: relative;
+      overflow: hidden;
+    }
+    .fill {
+      height: 100%;
+      background: linear-gradient(90deg, #ff0000, #ff8800);
+      transition: width 0.2s;
+    }
+    #xp-bar { background: linear-gradient(90deg, #00ffcc, #00ffff); }
+    h1 {
+      font-size: 28px;
+      margin: 0;
+      text-shadow: 0 0 20px #ff00ff;
+      letter-spacing: 4px;
+    }
+    button {
+      padding: 14px 40px;
+      font-family: 'Press Start 2P', cursive;
+      font-size: 18px;
+      background: #6600ff;
+      color: white;
+      border: 6px solid #ffcc00;
+      cursor: pointer;
+      box-shadow: 0 8px 0 #4400aa;
+      transition: all 0.1s;
+    }
+    button:active {
+      transform: translateY(4px);
+      box-shadow: 0 4px 0 #4400aa;
+    }
+    #screens {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      background: rgba(10,10,42,0.95);
+      z-index: 200;
+      gap: 20px;
+    }
+    .hidden { display: none !important; }
+  </style>
 </head>
 <body>
 
-  <header>
-    <nav>
-      <div class="logo">Sensor Car</div>
-      <div class="nav-links">
-        <a href="index.html">Home</a>
-        <a href="about.html">About</a>
-        <a href="components.html">Components</a>
-        <a href="how-it-works.html">How It Works</a>
-        <a href="build-guide.html">Build Guide</a>
-        <a href="code-examples.html">Code</a>
-        <a href="quiz.html">Quiz</a>
-        <a href="game.html">Game</a>
-      </div>
-    </nav>
-  </header>
+<h1>MINI BLOX FRUITS</h1>
 
-  <main>  
-  <section class="game-container">
-    <h2>Obstacle Dodging Game</h2>
-    <p>Use ← → keys to move the car</p>
-    <canvas id="gameCanvas" width="400" height="600"></canvas>
-    <p>Try to survive as long as possible!</p>
-  </section>
-</main>
+<div id="ui">
+  <div>Bounty: <span id="bounty">0</span></div>
+  <div>Level <span id="level">1</span></div>
+  <div>Health <div class="bar"><div id="hp-fill" class="fill" style="width:100%"></div></div></div>
+  <div>XP <div class="bar"><div id="xp-fill" class="fill" style="width:0%; background:linear-gradient(90deg,#00ffcc,#00ffff)"></div></div></div>
+</div>
 
-  <footer>
-    <p>© 2026 Sensor Car Project • Educational Robotics</p>
-  </footer>
+<canvas id="game" width="900" height="620"></canvas>
 
-  <script src="js/script.js"></script>
+<div id="screens">
+  <div id="start-screen">
+    <h2 style="font-size:32px; margin:0; color:#ff00ff">ONE PIECE STYLE ADVENTURE</h2>
+    <p style="max-width:500px; text-align:center; font-size:14px; line-height:1.6">
+      WASD = Move<br>
+      MOUSE = Aim<br>
+      CLICK = Sword Attack<br>
+      Eat Devil Fruits for SPECIAL POWERS 🔥<br>
+      Survive longer = Higher Bounty!
+    </p>
+    <button id="start-btn">SET SAIL!</button>
+  </div>
+
+  <div id="game-over-screen" class="hidden">
+    <h2 style="color:#ff0000; font-size:36px">YOUR JOURNEY ENDS...</h2>
+    <div style="font-size:24px">Final Bounty: <span id="final-bounty">0</span></div>
+    <button id="restart-btn">TRY AGAIN PIRATE!</button>
+  </div>
+</div>
+
+<script>
+// ==================== MINI BLOX FRUITS ====================
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+let player = {
+  x: W/2,
+  y: H/2,
+  size: 22,
+  speed: 4.2,
+  hp: 100,
+  maxHp: 100,
+  level: 1,
+  xp: 0,
+  xpNeeded: 80,
+  bounty: 0,
+  angle: 0,
+  power: null,     // "fire", "speed", "ice"
+  powerTime: 0,
+  attackCooldown: 0
+};
+
+let keys = {};
+let mouse = {x: W/2, y: H/2, down: false};
+let fruits = [];
+let enemies = [];
+let projectiles = [];
+let particles = [];
+let gameRunning = false;
+let lastSpawnFruit = 0;
+let lastSpawnEnemy = 0;
+let scoreMultiplier = 1;
+
+// Event listeners
+window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+window.addEventListener('keyup',   e => keys[e.key.toLowerCase()] = false);
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = e.clientX - rect.left;
+  mouse.y = e.clientY - rect.top;
+});
+
+canvas.addEventListener('mousedown', () => { if(gameRunning) mouse.down = true; });
+canvas.addEventListener('mouseup',   () => mouse.down = false);
+
+// Simple particle system
+function createParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x, y,
+      vx: Math.random()*8 - 4,
+      vy: Math.random()*8 - 6,
+      life: 35,
+      color
+    });
+  }
+}
+
+// Spawn fruit (Devil Fruit!)
+function spawnFruit() {
+  fruits.push({
+    x: 80 + Math.random()*(W-160),
+    y: 80 + Math.random()*(H-160),
+    size: 18,
+    type: Math.floor(Math.random()*3), // 0=fire, 1=speed, 2=ice
+    bob: 0
+  });
+}
+
+// Spawn Marine enemy
+function spawnEnemy() {
+  const side = Math.random() < 0.5 ? 0 : 1;
+  const enemy = {
+    x: side ? -30 : W + 30,
+    y: 100 + Math.random()*(H-200),
+    size: 20,
+    hp: 35 + player.level * 8,
+    maxHp: 35 + player.level * 8,
+    speed: 1.6 + player.level * 0.12,
+    angle: 0
+  };
+  enemies.push(enemy);
+}
+
+// Update player angle to mouse
+function updatePlayerAngle() {
+  player.angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+}
+
+// Main game loop
+function gameLoop() {
+  if (!gameRunning) return;
+  
+  ctx.clearRect(0, 0, W, H);
+  
+  // === DRAW BACKGROUND ===
+  // Sea
+  ctx.fillStyle = '#0a1f4a';
+  ctx.fillRect(0, 0, W, H);
+  
+  // Water waves
+  ctx.strokeStyle = '#1e4a8a';
+  ctx.lineWidth = 4;
+  for (let i = 0; i < 8; i++) {
+    ctx.beginPath();
+    ctx.moveTo(0, 120 + i*55 + Math.sin(Date.now()/300 + i)*8);
+    ctx.quadraticCurveTo(W/2, 100 + i*55, W, 130 + i*55 + Math.sin(Date.now()/280 + i)*6);
+    ctx.stroke();
+  }
+  
+  // Main Island
+  ctx.fillStyle = '#1a5f2a';
+  ctx.beginPath();
+  ctx.ellipse(W/2 + 40, H/2 + 80, 240, 160, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#2a8f3a';
+  ctx.beginPath();
+  ctx.ellipse(W/2 + 30, H/2 + 70, 210, 135, 0, 0, Math.PI*2);
+  ctx.fill();
+  
+  // Palm trees (simple)
+  ctx.fillStyle = '#3a2f1a';
+  ctx.fillRect(W/2 - 80, H/2 + 30, 12, 60);
+  ctx.fillRect(W/2 + 130, H/2 + 60, 12, 55);
+  
+  // Update & draw player
+  updatePlayerAngle();
+  
+  let dx = 0, dy = 0;
+  if (keys['w'] || keys['arrowup']) dy -= 1;
+  if (keys['s'] || keys['arrowdown']) dy += 1;
+  if (keys['a'] || keys['arrowleft']) dx -= 1;
+  if (keys['d'] || keys['arrowright']) dx += 1;
+  
+  if (dx || dy) {
+    const len = Math.hypot(dx, dy);
+    player.x += (dx / len) * player.speed * (player.power === 'speed' ? 1.7 : 1);
+    player.y += (dy / len) * player.speed * (player.power === 'speed' ? 1.7 : 1);
+  }
+  
+  // Keep player in bounds
+  player.x = Math.max(30, Math.min(W-30, player.x));
+  player.y = Math.max(30, Math.min(H-30, player.y));
+  
+  // Draw player (pirate)
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  ctx.rotate(player.angle);
+  
+  // Body
+  ctx.fillStyle = '#ffdd88';
+  ctx.fillRect(-12, -12, 24, 24);
+  // Hat
+  ctx.fillStyle = '#222244';
+  ctx.fillRect(-16, -18, 32, 12);
+  // Sword
+  ctx.strokeStyle = '#ddddee';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(12, 0);
+  ctx.lineTo(38, 0);
+  ctx.stroke();
+  
+  ctx.restore();
+  
+  // === DEVIL FRUITS ===
+  fruits.forEach((f, i) => {
+    f.bob = Math.sin(Date.now()/150 + i) * 3;
+    
+    // Draw fruit
+    const colors = ['#ff2222', '#22ff88', '#88aaff'];
+    ctx.fillStyle = colors[f.type];
+    ctx.beginPath();
+    ctx.arc(f.x, f.y + f.bob, f.size, 0, Math.PI*2);
+    ctx.fill();
+    
+    ctx.fillStyle = '#000';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(['🔥','⚡','❄️'][f.type], f.x, f.y + f.bob + 6);
+    
+    // Collect check
+    const dist = Math.hypot(f.x - player.x, f.y - player.y);
+    if (dist < player.size + f.size) {
+      player.power = ['fire','speed','ice'][f.type];
+      player.powerTime = 480; // ~8 seconds
+      
+      createParticles(f.x, f.y, colors[f.type], 28);
+      fruits.splice(i, 1);
+      
+      // Eat sound simulation (visual only)
+      ctx.fillStyle = '#ffff00';
+      ctx.font = '30px Arial';
+      ctx.fillText('🍖', player.x, player.y - 40);
+    }
+  });
+  
+  // === ENEMIES (Marines) ===
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    const e = enemies[i];
+    
+    // Move toward player
+    const dx = player.x - e.x;
+    const dy = player.y - e.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    e.x += (dx / dist) * e.speed;
+    e.y += (dy / dist) * e.speed;
+    e.angle = Math.atan2(dy, dx);
+    
+    // Draw Marine
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(e.angle);
+    ctx.fillStyle = '#3366ff';
+    ctx.fillRect(-16, -16, 32, 32);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(-10, -22, 20, 12); // hat
+    ctx.restore();
+    
+    // Health bar
+    const hpPercent = e.hp / e.maxHp;
+    ctx.fillStyle = '#00000088';
+    ctx.fillRect(e.x - 18, e.y - 28, 36, 6);
+    ctx.fillStyle = hpPercent > 0.3 ? '#00ff00' : '#ff0000';
+    ctx.fillRect(e.x - 18, e.y - 28, 36 * hpPercent, 6);
+    
+    // Collision with player
+    if (Math.hypot(e.x - player.x, e.y - player.y) < player.size + e.size) {
+      player.hp -= 0.6;
+      createParticles(player.x, player.y, '#ff0000', 8);
+      if (player.hp <= 0) endGame();
+    }
+  }
+  
+  // === PLAYER ATTACK ===
+  if (player.attackCooldown > 0) player.attackCooldown--;
+  
+  if (mouse.down && player.attackCooldown <= 0) {
+    player.attackCooldown = player.power === 'ice' ? 12 : 18; // ice faster
+    
+    const attackRange = 55;
+    let hit = false;
+    
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const e = enemies[i];
+      const dx = e.x - player.x;
+      const dy = e.y - player.y;
+      const dist = Math.hypot(dx, dy);
+      
+      if (dist < attackRange) {
+        const angleToEnemy = Math.atan2(dy, dx);
+        if (Math.abs(angleToEnemy - player.angle) < 1.2 || dist < 35) {
+          const damage = player.power === 'fire' ? 28 : 18;
+          e.hp -= damage;
+          createParticles(e.x, e.y, player.power === 'fire' ? '#ff8800' : '#ffffff', 14);
+          hit = true;
+          
+          if (e.hp <= 0) {
+            createParticles(e.x, e.y, '#ff0000', 35);
+            player.bounty += 25 * scoreMultiplier;
+            player.xp += 18;
+            enemies.splice(i, 1);
+            
+            // Level up
+            if (player.xp >= player.xpNeeded) {
+              player.level++;
+              player.xp = 0;
+              player.xpNeeded = Math.floor(player.xpNeeded * 1.45);
+              player.maxHp += 15;
+              player.hp = player.maxHp;
+              scoreMultiplier += 0.3;
+            }
+          }
+          break;
+        }
+      }
+    }
+    
+    // Fire power special attack
+    if (player.power === 'fire' && hit) {
+      projectiles.push({
+        x: player.x,
+        y: player.y,
+        vx: Math.cos(player.angle) * 9,
+        vy: Math.sin(player.angle) * 9,
+        life: 45,
+        color: '#ff4400'
+      });
+    }
+  }
+  
+  // Update & draw projectiles
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const p = projectiles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life--;
+    
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 7, 0, Math.PI*2);
+    ctx.fill();
+    
+    if (p.life <= 0) {
+      projectiles.splice(i, 1);
+      continue;
+    }
+    
+    // Projectile hits enemy
+    for (let j = enemies.length - 1; j >= 0; j--) {
+      const e = enemies[j];
+      if (Math.hypot(p.x - e.x, p.y - e.y) < 22) {
+        e.hp -= 22;
+        createParticles(p.x, p.y, '#ffaa00', 18);
+        projectiles.splice(i, 1);
+        if (e.hp <= 0) {
+          createParticles(e.x, e.y, '#ff0000', 30);
+          player.bounty += 35;
+          player.xp += 22;
+          enemies.splice(j, 1);
+        }
+        break;
+      }
+    }
+  }
+  
+  // Update particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life--;
+    p.vy += 0.18;
+    
+    ctx.globalAlpha = p.life / 35;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, 6, 6);
+    
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  ctx.globalAlpha = 1;
+  
+  // Power timer
+  if (player.powerTime > 0) {
+    player.powerTime--;
+    if (player.powerTime <= 0) player.power = null;
+  }
+  
+  // Spawn logic
+  if (Date.now() - lastSpawnFruit > 2400) {
+    if (fruits.length < 4) spawnFruit();
+    lastSpawnFruit = Date.now();
+  }
+  
+  if (Date.now() - lastSpawnEnemy > 1400 - player.level*30) {
+    if (enemies.length < 6 + player.level) spawnEnemy();
+    lastSpawnEnemy = Date.now();
+  }
+  
+  // UI updates
+  document.getElementById('bounty').textContent = Math.floor(player.bounty);
+  document.getElementById('level').textContent = player.level;
+  document.getElementById('hp-fill').style.width = (player.hp / player.maxHp * 100) + '%';
+  document.getElementById('xp-fill').style.width = (player.xp / player.xpNeeded * 100) + '%';
+  
+  // Game over check
+  if (player.hp <= 0) {
+    endGame();
+  }
+  
+  requestAnimationFrame(gameLoop);
+}
+
+function startGame() {
+  player = {
+    x: W/2, y: H/2, size: 22, speed: 4.2,
+    hp: 100, maxHp: 100,
+    level: 1, xp: 0, xpNeeded: 80,
+    bounty: 0,
+    angle: 0,
+    power: null,
+    powerTime: 0,
+    attackCooldown: 0
+  };
+  
+  fruits = [];
+  enemies = [];
+  projectiles = [];
+  particles = [];
+  scoreMultiplier = 1;
+  
+  document.getElementById('start-screen').classList.add('hidden');
+  document.getElementById('game-over-screen').classList.add('hidden');
+  
+  gameRunning = true;
+  gameLoop();
+  
+  // First spawns
+  for (let i = 0; i < 3; i++) spawnFruit();
+  for (let i = 0; i < 2; i++) spawnEnemy();
+}
+
+function endGame() {
+  gameRunning = false;
+  document.getElementById('final-bounty').textContent = Math.floor(player.bounty);
+  document.getElementById('game-over-screen').classList.remove('hidden');
+}
+
+// Button handlers
+document.getElementById('start-btn').onclick = startGame;
+document.getElementById('restart-btn').onclick = startGame;
+
+// Start with title screen
+</script>
 </body>
 </html>
